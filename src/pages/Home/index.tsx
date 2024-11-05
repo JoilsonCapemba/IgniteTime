@@ -1,5 +1,5 @@
-import { PlayCircle } from "phosphor-react";
-import { BtnStart, CountdownContainer, FormContainer, HomeContainer, MinutesAmountInput, Separator, TaskInput } from "./style";
+import { HandPalm, PlayCircle } from "phosphor-react";
+import { BtnStart, BtnStop, CountdownContainer, FormContainer, HomeContainer, MinutesAmountInput, Separator, TaskInput } from "./style";
 import {useForm} from 'react-hook-form'
 import {zodResolver} from '@hookform/resolvers/zod'
 import * as zod from 'zod'
@@ -11,7 +11,7 @@ import { act } from "react-dom/test-utils";
 
 const newCycleValidationSchema = zod.object({
     task: zod.string().min(1, 'Informe a Tarefa'),
-    minutesAmount: zod.number().min(5, 'O minuto nao pode ser abaixo de 5').max(60, 'O minuto nao pode ser acima de 60')
+    minutesAmount: zod.number().min(1, 'O minuto nao pode ser abaixo de 1').max(60, 'O minuto nao pode ser acima de 60')
 })
 
 interface NewCycleformData{
@@ -23,7 +23,9 @@ interface Cycle{
     id: string,
     title: string,
     minutesAmount: number,
-    startDate: Date
+    startDate: Date,
+    interruptedDate?: Date,
+    finishedDate?: Date
 }
 
 export function Home(){
@@ -70,15 +72,42 @@ export function Home(){
 
      console.log(minutes)
      console.log(secounds)
+
+     function handleInterruptCycle(){
+        setCycles(
+            cycles.map((cycle)=>{
+                if(cycle.id == activeCycleId){
+                    return {...cycle, interruptedDate: new Date()}
+                } else {
+                    return cycle
+                }
+            })
+        )
+
+        setActiveCycleId(null)
+     }
      
      useEffect(()=>{
         let interval: number;
 
         if(activeCycle){
             interval = setInterval(()=>{
-                setAmountSecoundsPassed(
-                    differenceInSeconds( new Date(), activeCycle.startDate)
-                )
+                const secoundsDifference = differenceInSeconds( new Date(), activeCycle.startDate)
+                
+                if(secoundsDifference >= totalSecounds){
+                    setCycles((state)=>
+                        state.map((cycle)=>{
+                            if(cycle.id == activeCycleId){
+                                return {...cycle, finishedDate: new Date()}
+                            } else {
+                                return cycle
+                            }
+                        })
+                    )
+                }else{
+                    setAmountSecoundsPassed(secoundsDifference)
+                }
+                
             }, 1000)
         }
 
@@ -86,7 +115,7 @@ export function Home(){
             clearInterval(interval)
         })
 
-     }, [activeCycle])
+     }, [activeCycle, totalSecounds, activeCycleId])
 
      useEffect(()=>{
         if(activeCycle){
@@ -107,6 +136,7 @@ export function Home(){
                         id="task" 
                         list="taskSugest" 
                         placeholder="De o nome do seu projeto" 
+                        disabled={!!activeCycle}
                         {...register('task')}
                     />
                     <datalist id="taskSugest">
@@ -119,8 +149,9 @@ export function Home(){
                     <MinutesAmountInput 
                         type="number" 
                         id="minutesAmount"
-                        min={5}
+                        min={1}
                         max={60}
+                        disabled={!!activeCycle}
                         {...register('minutesAmount', { valueAsNumber : true })}
                     />
                     <span>minutos.</span>
@@ -134,10 +165,17 @@ export function Home(){
                     <span>{secounds[1]}</span>
                 </CountdownContainer>
 
-                 <BtnStart type="submit" disabled={!taskInput}>
-                    <PlayCircle/>
-                    Comecar
-                </BtnStart>
+                {activeCycle ? (
+                    <BtnStop type="button" onClick={handleInterruptCycle}>
+                        <HandPalm/>
+                        Comecar
+                    </BtnStop>
+                ): (
+                    <BtnStart type="submit" disabled={!taskInput}>
+                        <PlayCircle/>
+                        Comecar
+                    </BtnStart>
+                )}
             
             </form>
         </HomeContainer>
